@@ -1,0 +1,13 @@
+# Normalise line endings so that a fresh clone matches the committed bytes on
+# every platform. Source and documentation are stored with LF; the Windows
+# helper script keeps CRLF because cmd.exe is happier with it.
+* text=auto eol=lf
+*.cmd text eol=crlf
+*.bat text eol=crlf
+*.sln text eol=crlf
+*.vcxproj text eol=crlf
+
+# Binary assets, if any are ever added.
+*.png binary
+*.jpg binary
+*.ico binary

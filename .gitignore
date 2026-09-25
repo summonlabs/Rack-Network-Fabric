@@ -1,0 +1,19 @@
+# Build trees
+/build/
+/out/
+/install/
+/_fresh/
+*.user
+
+# Editor / OS noise
+.vscode/
+.idea/
+.vs/
+*.swp
+Thumbs.db
+.DS_Store
+
+# Local artifacts
+*.log
+*.tmp
+/Testing/

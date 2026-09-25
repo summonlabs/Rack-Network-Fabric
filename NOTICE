@@ -1,0 +1,12 @@
+Rack Network Fabric
+Copyright 2026 Summon Software Labs.
+
+This product is licensed under the Apache License, Version 2.0.
+See the LICENSE file for the full license text.
+
+The Rack Network Fabric runtime contains no third-party source code.
+All cryptographic, checksum, serialization, framing, persistence and
+networking code in this repository was written for this project and
+is distributed under the same Apache License, Version 2.0.
+
+This software transmits no telemetry.
