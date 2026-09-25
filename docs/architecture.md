@@ -120,10 +120,13 @@ It runs in nine steps:
    `headroom_floor` are subtracted from `usable`; whatever is left is
    `uncommitted`, and anything that does not fit is reported as `deficit`.
    Both ledger identities are re-checked before the snapshot is published.
-8. **Paths.** A bounded depth-first search over eligible links enumerates short
-   simple chains from an eligible access port to an uplink, fabric or peer port,
-   in a deterministic order, with hop and count limits. Truncation is reported,
-   never hidden.
+8. **Paths.** An *access port* is a port that carries an eligible attachment; an
+   *exit port* is a port whose role is uplink, fabric or peer. A bounded
+   depth-first search over eligible links enumerates short simple chains from an
+   access port to an exit port, in a deterministic order, with hop and count
+   limits. A rack with no eligible attachment therefore has no paths, which is
+   the correct answer rather than a missing one. Truncation is reported, never
+   hidden.
 9. **Publish.** Diagnostics are sorted and de-duplicated, the member set digest
    is computed, and the canonical encoding is hashed into the snapshot's content
    address.
