@@ -10,6 +10,7 @@
 #include <thread>
 #include <vector>
 
+#include "rnf/net/socket.hpp"
 #include "rnf/runtime/client.hpp"
 #include "rnf/runtime/daemon.hpp"
 #include "rnf/runtime/server.hpp"
@@ -356,4 +357,11 @@ RNF_TEST(integration, connecting_to_a_dead_endpoint_fails_with_a_typed_status) {
     // A malformed endpoint is refused before any socket is created.
     RNF_REQUIRE_CODE(Client::connect(Endpoint{"not-an-address", 0}, options),
                      StatusCode::kInvalidArgument);
+}
+
+RNF_TEST(integration, a_second_listener_cannot_take_a_listening_port) {
+    RNF_REQUIRE_VALUE(first, TcpListener::bind_loopback(0, 4));
+    RNF_CHECK(first.port() != 0U);
+    // Two daemons must never share one listening port: the second bind fails.
+    RNF_CHECK(!TcpListener::bind_loopback(first.port(), 4).has_value());
 }

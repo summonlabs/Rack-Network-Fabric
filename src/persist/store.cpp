@@ -5,11 +5,13 @@
 
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cstdio>
 #include <cstring>
 #include <limits>
 #include <string>
 #include <system_error>
+#include <thread>
 #include <utility>
 
 #include "rnf/core/checked.hpp"
@@ -183,7 +185,30 @@ Status decode_meta(const std::array<std::uint8_t, kMetaSize>& buffer, bool allow
         return synced;
     }
     std::error_code ec;
-    std::filesystem::rename(temporary, target, ec);
+    // While a reader has the target open (an inspection of the store, an
+    // antivirus or indexing scan) the rename fails on Windows until the reader
+    // closes the file, so it is retried for a bounded time (about 2 s). A
+    // directory in the way is not transient and fails at once.
+    for (int attempt = 0;; ++attempt) {
+        ec.clear();
+        std::filesystem::rename(temporary, target, ec);
+        if (!ec) {
+            break;
+        }
+#if defined(_WIN32)
+        // ERROR_ACCESS_DENIED, ERROR_SHARING_VIOLATION and ERROR_LOCK_VIOLATION.
+        std::error_code kind;
+        const bool transient = ec.category() == std::system_category() &&
+                               (ec.value() == 5 || ec.value() == 32 || ec.value() == 33) &&
+                               !std::filesystem::is_directory(target, kind);
+#else
+        const bool transient = false;
+#endif
+        if (!transient || attempt >= 100) {
+            break;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    }
     if (ec) {
         std::error_code ignored;
         std::filesystem::remove(temporary, ignored);

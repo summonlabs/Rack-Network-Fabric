@@ -4,10 +4,12 @@
 // Persistence tests: real close and reopen, torn tails, corruption in the
 // middle of the log, checkpoints, version refusal and exclusive locking.
 
+#include <chrono>
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include "rnf/persist/store.hpp"
@@ -364,4 +366,41 @@ RNF_TEST(persist, bounded_record_size_is_enforced) {
     RNF_REQUIRE_CODE(store->append(record), StatusCode::kOversizeField);
     RNF_CHECK_EQ(store->appends(), 0U);
     RNF_REQUIRE_OK(store->mark_clean_shutdown(1));
+}
+
+RNF_TEST(persist, a_checkpoint_waits_for_a_reader_of_the_meta_file) {
+    const std::filesystem::path directory = make_temp_directory("store-meta-reader");
+    const std::vector<EvidenceRecord> records = linear_rack(0);
+    RNF_REQUIRE_VALUE(store, Store::open(directory, default_options()));
+    RNF_REQUIRE_OK(store->bind_rack(kRack));
+    for (const EvidenceRecord& record : records) {
+        RNF_REQUIRE_OK(store->append(evidence_store_record(record)));
+    }
+    Checkpoint checkpoint;
+    checkpoint.wal_offset = store->log_bytes();
+    checkpoint.generation = TopologyGeneration{3};
+    checkpoint.epoch = RackEpoch{2};
+    checkpoint.incarnation = ControllerIncarnation{1};
+    checkpoint.ledger = records;
+    checkpoint.snapshot_bytes = {1, 2, 3, 4};
+    checkpoint.snapshot_digest = Blake2s256::hash(std::string_view("snapshot"));
+    checkpoint.ledger_digest = Blake2s256::hash(std::string_view("ledger"));
+    bool reader_opened = false;
+    bool written = false;
+    {
+        // An inspection of the store holds the meta file open while the
+        // checkpoint replaces it, and closes it shortly after.
+        std::ifstream reader(directory / "rnf.meta", std::ios::binary);
+        reader_opened = reader.is_open();
+        std::thread writer([&store, &checkpoint, &written] {
+            written = store->write_checkpoint(checkpoint).ok();
+        });
+        std::this_thread::sleep_for(std::chrono::milliseconds(300));
+        reader.close();
+        writer.join();
+    }
+    RNF_CHECK(reader_opened);
+    // The replacement waits for the reader instead of failing the checkpoint.
+    RNF_CHECK(written);
+    RNF_REQUIRE_OK(store->mark_clean_shutdown(2));
 }
